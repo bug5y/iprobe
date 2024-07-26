@@ -4,9 +4,7 @@ import (
 	"time"
 	"net/http"
 	"fmt"
-	"net"
-	"strconv"
-    "context"
+    "crypto/tls"
 )
 
 func sendRequest(protocol, ip, port string, timeout time.Duration, userAgent string) (bool, string) {

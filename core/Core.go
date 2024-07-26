@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+    "strconv"
+    "net"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/net/context"
 )
@@ -40,10 +42,35 @@ func Start(config Config, targets []string) {
                     return
                 }
                 defer sem.Release(1)
-                active, respCode := sendRequest(protocol, ip, port, config.Timeout, config.UserAgent)
+                active, respCode, hostname := sendRequest(protocol, ip, port, config.Timeout, config.UserAgent)
                 if active {
-                    results <- fmt.Sprintf("\033[32m[%s] %s://%s:%s\033[0m", respCode, protocol, ip, port)
-                } 
+                    if hostname == "" {
+                        // Perform reverse DNS lookup if hostname is empty
+                        names, err := net.LookupAddr(ip)
+                        if err == nil && len(names) > 0 {
+                            hostname = names[0]
+                        }
+                    }
+                    var colorCode string
+                    statusCode, _ := strconv.Atoi(respCode)
+                    switch {
+                    case statusCode >= 200 && statusCode < 300:
+                        colorCode = "\033[32m" // Green
+                    case statusCode >= 300 && statusCode < 400:
+                        colorCode = "\033[34m" // Blue
+                    case statusCode >= 400:
+                        colorCode = "\033[31m" // Red
+                    default:
+                        colorCode = "\033[0m" // Default (no color)
+                    }
+                    
+                    hostnameInfo := ""
+                    if hostname != "" {
+                        hostnameInfo = fmt.Sprintf(" - Hostname: %s", hostname)
+                    }
+                    
+                    results <- fmt.Sprintf("%s[%s] %s://%s:%s%s\033[0m", colorCode, respCode, protocol, ip, port, hostnameInfo)
+                }
             }(ip, port, protocol)
         }
     }
